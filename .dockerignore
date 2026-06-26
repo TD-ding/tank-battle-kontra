@@ -1,0 +1,18 @@
+# Build artifacts and deps (the image builds these itself)
+node_modules
+dist
+test-screenshots
+*.log
+
+# Git / CI / editor noise
+.git
+.github
+.gitignore
+
+# Agent runtime scaffolding (not part of the game)
+.claude
+AGENT.md
+SOUL.md
+CLAUDE.md
+profile.yaml
+POLISH_SUMMARY.md
