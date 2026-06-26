@@ -15,36 +15,60 @@ async function startDevServer() {
     console.log('Starting dev server...');
 
     // Run Vite directly via node so we don't depend on the bin shim's +x bit
-    // or a shell resolving `vite` on PATH.
-    devServer = spawn(process.execPath, ['node_modules/vite/bin/vite.js'], {
+    // or a shell resolving `vite` on PATH. --host keeps the banner format
+    // predictable and binds reliably in CI containers.
+    devServer = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1'], {
       cwd: __dirname,
       stdio: 'pipe',
-      shell: false
+      shell: false,
+      env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' }
     });
 
     let output = '';
-    devServer.stdout.on('data', (data) => {
-      output += data.toString();
-      const match = output.match(/Local:\s+http:\/\/localhost:(\d+)/);
-      if (match) {
+    let settled = false;
+    // Strip ANSI color codes so the URL regex matches in CI too.
+    const stripAnsi = (s) => s.replace(/\[[0-9;]*m/g, '');
+
+    const tryMatch = () => {
+      const clean = stripAnsi(output);
+      const match = clean.match(/https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)/);
+      if (match && !settled) {
+        settled = true;
         devServerPort = match[1];
         console.log(`Dev server started on port ${devServerPort}`);
-        setTimeout(() => resolve(devServerPort), 2000);
+        setTimeout(() => resolve(devServerPort), 1500);
       }
+    };
+
+    devServer.stdout.on('data', (data) => {
+      output += data.toString();
+      tryMatch();
     });
 
+    // Vite prints the URL to stdout, but capture stderr too: it's where any
+    // startup failure shows up, and we want it surfaced rather than swallowed.
     devServer.stderr.on('data', (data) => {
       const msg = data.toString();
+      output += msg;
       if (!msg.includes('DeprecationWarning')) {
-        console.error('Dev server error:', msg);
+        console.error('Dev server stderr:', msg.trim());
+      }
+      tryMatch();
+    });
+
+    devServer.on('exit', (code) => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Dev server exited early (code ${code}). Output:\n${stripAnsi(output)}`));
       }
     });
 
     setTimeout(() => {
-      if (!devServerPort) {
-        reject(new Error('Dev server failed to start within 15 seconds'));
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Dev server failed to start within 60 seconds. Output so far:\n${stripAnsi(output)}`));
       }
-    }, 15000);
+    }, 60000);
   });
 }
 
@@ -66,7 +90,7 @@ async function smokeTest() {
 
   try {
     const port = await startDevServer();
-    const baseURL = `http://localhost:${port}`;
+    const baseURL = `http://127.0.0.1:${port}`;
 
     // Browser resolution order:
     //   1. CHROMIUM_PATH env var (explicit override)
@@ -155,6 +179,15 @@ async function smokeTest() {
     await page.screenshot({ path: startScreenshot, fullPage: true });
     console.log(`Screenshot: ${startScreenshot}`);
 
+    // Capture the freshly-initialized round state NOW, while still on the
+    // start screen. The entities are lazily created in the 'start' branch, so
+    // health/score/enemies already hold their initial values - and reading them
+    // here (before any combat) avoids a race where a fast runner lets an enemy
+    // land a hit in the moments after the round starts.
+    const initialHealth = await page.evaluate(() => window.gameDebug.getPlayerHealth());
+    const initialScore = await page.evaluate(() => window.gameDebug.getScore());
+    const initialEnemies = await page.evaluate(() => window.gameDebug.getEnemyCount());
+
     console.log('\n=== Test 5: Start button transitions to playing ===');
     await page.keyboard.down('Space');
     await page.waitForTimeout(100);
@@ -169,11 +202,7 @@ async function smokeTest() {
       testsFailed++;
     }
 
-    console.log('\n=== Test 6: Initial game state is correct ===');
-    const initialHealth = await page.evaluate(() => window.gameDebug.getPlayerHealth());
-    const initialScore = await page.evaluate(() => window.gameDebug.getScore());
-    const initialEnemies = await page.evaluate(() => window.gameDebug.getEnemyCount());
-
+    console.log('\n=== Test 6: Initial round state is correct ===');
     if (initialHealth === 3 && initialScore === 0 && initialEnemies === 3) {
       console.log(`✓ Initial state (health=3, score=0, enemies=3)`);
       testsPassed++;
