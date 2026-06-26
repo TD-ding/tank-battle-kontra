@@ -2,6 +2,10 @@
 
 A top-down tank battle game built with JavaScript and Kontra.js. Destroy enemy tanks while avoiding their return fire in a walled arena.
 
+> **Project status:** shipped — merged to `main` with green CI. For run/build/Docker
+> commands, the CI gate and auto-merge setup, and the deferred backlog, see
+> [HANDOFF.md](./HANDOFF.md).
+
 ## Features
 
 - Player tank with WASD/arrow key movement and mouse aiming
