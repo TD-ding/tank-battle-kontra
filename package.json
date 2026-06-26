@@ -1,0 +1,22 @@
+{
+  "name": "tank-battle",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A small top-down tank battle game built with Kontra.js and Vite.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:smoke": "node smoke-test.js"
+  },
+  "keywords": ["game", "kontra", "vite", "canvas"],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.61.1",
+    "vite": "^8.1.0"
+  },
+  "dependencies": {
+    "kontra": "^10.0.2"
+  }
+}
