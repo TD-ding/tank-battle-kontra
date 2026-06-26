@@ -179,6 +179,15 @@ async function smokeTest() {
     await page.screenshot({ path: startScreenshot, fullPage: true });
     console.log(`Screenshot: ${startScreenshot}`);
 
+    // Capture the freshly-initialized round state NOW, while still on the
+    // start screen. The entities are lazily created in the 'start' branch, so
+    // health/score/enemies already hold their initial values - and reading them
+    // here (before any combat) avoids a race where a fast runner lets an enemy
+    // land a hit in the moments after the round starts.
+    const initialHealth = await page.evaluate(() => window.gameDebug.getPlayerHealth());
+    const initialScore = await page.evaluate(() => window.gameDebug.getScore());
+    const initialEnemies = await page.evaluate(() => window.gameDebug.getEnemyCount());
+
     console.log('\n=== Test 5: Start button transitions to playing ===');
     await page.keyboard.down('Space');
     await page.waitForTimeout(100);
@@ -193,11 +202,7 @@ async function smokeTest() {
       testsFailed++;
     }
 
-    console.log('\n=== Test 6: Initial game state is correct ===');
-    const initialHealth = await page.evaluate(() => window.gameDebug.getPlayerHealth());
-    const initialScore = await page.evaluate(() => window.gameDebug.getScore());
-    const initialEnemies = await page.evaluate(() => window.gameDebug.getEnemyCount());
-
+    console.log('\n=== Test 6: Initial round state is correct ===');
     if (initialHealth === 3 && initialScore === 0 && initialEnemies === 3) {
       console.log(`✓ Initial state (health=3, score=0, enemies=3)`);
       testsPassed++;
