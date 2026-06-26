@@ -49,6 +49,34 @@ The built files will be in the `dist` directory.
 npm run preview
 ```
 
+## Run with Docker
+
+No local Node toolchain required — the image builds the production bundle and
+serves the static files with nginx.
+
+```bash
+# Build the image
+docker build -t tank-battle .
+
+# Run it and play at http://localhost:8080
+docker run --rm -p 8080:80 tank-battle
+```
+
+Or with Docker Compose:
+
+```bash
+docker compose up --build
+# then open http://localhost:8080
+```
+
+## Continuous Integration
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and
+pull request. It installs dependencies, provisions Chromium for Playwright
+(`npx playwright install --with-deps chromium`), builds the production bundle,
+and runs the smoke test headless — so the same assertions you run locally gate
+the PR. Smoke-test screenshots are uploaded as a build artifact.
+
 ## Controls
 
 - **WASD** or **Arrow keys**: Move tank
@@ -78,9 +106,9 @@ The smoke test will:
 - Surface **all** console / page / network errors — nothing is silently filtered, the favicon 404 is fixed rather than hidden, and the whitelist is empty so a genuine error fails the run
 - Capture screenshots (`test-screenshots/`) of the start screen, gameplay, and final state
 
-> Note: the test launches Chromium from `/usr/bin/chromium`. If your Playwright
-> browser lives elsewhere, adjust `executablePath` in `smoke-test.js` (or remove
-> it to use Playwright's bundled download).
+> Browser resolution: the test uses `$CHROMIUM_PATH` if set, otherwise
+> Playwright's bundled Chromium if installed (what CI uses), otherwise the
+> system `/usr/bin/chromium`. Override with `CHROMIUM_PATH=/path/to/chrome`.
 
 ## Project Structure
 
@@ -95,6 +123,10 @@ The smoke test will:
 │   └── collision.js     # Collision detection helpers
 ├── index.html           # Game HTML entry point
 ├── smoke-test.js        # Automated smoke tests
+├── Dockerfile           # Multi-stage build -> nginx static serve
+├── docker-compose.yml   # `docker compose up` to play locally
+├── docker/nginx.conf    # nginx config for the static build
+├── .github/workflows/   # CI: build + headless smoke test
 └── package.json         # Dependencies and scripts
 ```
 

@@ -1,0 +1,7 @@
+services:
+  tank-battle:
+    build: .
+    image: tank-battle:latest
+    ports:
+      - "8080:80"
+    restart: unless-stopped
